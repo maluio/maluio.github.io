@@ -152,6 +152,37 @@ def livereload(c):
 
 
 @task
+def new(c):
+    """Interactively create a new post in the content folder"""
+    import re
+
+    today = input("For today? [Y/n] ").strip().lower() in ("", "y", "yes")
+    if today:
+        date = datetime.datetime.now()
+    else:
+        while True:
+            raw = input("Date (YYYY-MM-DD): ").strip()
+            try:
+                date = datetime.datetime.strptime(raw, "%Y-%m-%d").replace(hour=10)
+                break
+            except ValueError:
+                print("Invalid date, try again.")
+
+    title = ""
+    while not title:
+        title = input("Title: ").strip()
+
+    slug = re.sub(r"[^a-z0-9]+", "-", title.lower()).strip("-")
+    path = os.path.join(SETTINGS["PATH"], f"{date:%Y-%m-%d}-{slug}.md")
+    if os.path.exists(path):
+        sys.exit(f"{path} already exists")
+
+    with open(path, "w") as f:
+        f.write(f"Title: {title}\nDate: {date:%Y-%m-%d %H:%M}\nCategory: Review\n\n")
+    print(f"Created {path}")
+
+
+@task
 def publish(c):
     """Publish to production via rsync"""
     pelican_run("-s {settings_publish}".format(**CONFIG))
