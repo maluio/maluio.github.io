@@ -17,6 +17,25 @@ SETTINGS.update(DEFAULT_CONFIG)
 LOCAL_SETTINGS = get_settings_from_file(SETTINGS_FILE_BASE)
 SETTINGS.update(LOCAL_SETTINGS)
 
+
+def in_container():
+    """Best-effort detection of Docker, Podman and similar container runtimes"""
+    if os.path.exists("/.dockerenv") or os.path.exists("/run/.containerenv"):
+        return True
+    if os.environ.get("container") or os.environ.get("KUBERNETES_SERVICE_HOST"):
+        return True
+    try:
+        # Apple's `container` runs each container in a VM booted with vminitd
+        with open("/proc/cmdline") as f:
+            if "vminitd" in f.read():
+                return True
+        with open("/proc/1/cgroup") as f:
+            cgroup = f.read()
+    except OSError:
+        return False
+    return any(s in cgroup for s in ("docker", "kubepods", "containerd", "lxc", "libpod"))
+
+
 CONFIG = {
     "settings_base": SETTINGS_FILE_BASE,
     "settings_publish": "publishconf.py",
@@ -25,8 +44,9 @@ CONFIG = {
     # Github Pages configuration
     "github_pages_branch": "main",
     "commit_message": f"'Publish site on {datetime.date.today().isoformat()}'",
-    # Host and port for `serve`
-    "host": "localhost",
+    # Host and port for `serve`. Listen on all interfaces inside a container so
+    # the site is reachable through a published port.
+    "host": "0.0.0.0" if in_container() else "localhost",
     "port": 8000,
 }
 
